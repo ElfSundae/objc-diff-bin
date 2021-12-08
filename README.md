@@ -2,7 +2,7 @@
 >
 > - Original source: https://github.com/mattstevens/objc-diff
 >     + Homepage: http://codeworkshop.net/objc-diff/
-> - dreampiggy's fork: https://github.com/dreampiggy/objc-diff
+> - DreamPiggy's fork: https://github.com/dreampiggy/objc-diff
 
 # objc-diff
 

@@ -31,6 +31,11 @@
 @property(nonatomic, readonly) PLClangVersion *obsoletedVersion;
 
 /**
+ * Whether the entity is unconditionally unavailable on this platform.
+ */
+@property(nonatomic, readonly) BOOL isUnavailable;
+
+/**
  * An optional message to provide to a user of a deprecated or obsoleted entity, possibly to suggest replacement APIs.
  */
 @property(nonatomic, copy) NSString *message;

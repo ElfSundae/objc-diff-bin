@@ -7,6 +7,10 @@
 
 #import "PLClangTranslationUnit.h"
 #import "PLClangUnsavedFile.h"
+#import "PLClangFile.h"
+#import "PLClangEntityReference.h"
+#import "PLClangIndexIncludedFile.h"
+#import "PLClangIndexImportedASTFile.h"
 
 /**
  * Options used when creating an index.
@@ -101,10 +105,108 @@ typedef NS_OPTIONS(NSUInteger, PLClangTranslationUnitCreationOptions) {
      * Specifies that brief documentation comments should be included in the set
      * of code completions returned from a translation unit.
      */
-    PLClangTranslationUnitCreationIncludeBriefCommentsInCodeCompletion = 1UL << 6
+    PLClangTranslationUnitCreationIncludeBriefCommentsInCodeCompletion = 1UL << 6,
+    
+    /**
+     * Used to indicate that the precompiled preamble should be created on
+     * the first parse. Otherwise it will be created on the first reparse. This
+     * trades runtime on the first parse (serializing the preamble takes time) for
+     * reduced runtime on the second parse (can now reuse the preamble).
+     */
+    PLClangTranslationUnitCreationCreatePreambleOnFirstParse = 1UL << 7,
+    
+    /**
+     * Do not stop processing when fatal errors are encountered.
+     *
+     * When fatal errors are encountered while parsing a translation unit,
+     * semantic analysis is typically stopped early when compiling code. A common
+     * source for fatal errors are unresolvable include files. For the
+     * purposes of an IDE, this is undesirable behavior and as much information
+     * as possible should be reported. Use this flag to enable this behavior.
+     */
+    PLClangTranslationUnitCreationKeepGoing = 1UL << 8,
+    
+    /**
+     * Sets the preprocessor in a mode for parsing a single file only.
+     */
+    PLClangTranslationUnitCreationSingleFileParse = 1UL << 9,
+    
+    /**
+     * Used in combination with CXTranslationUnit_SkipFunctionBodies to
+     * constrain the skipping of function bodies to the preamble.
+     *
+     * The function bodies of the main file are not skipped.
+     */
+    PLClangTranslationUnitCreationLimitSkipFunctionBodiesToPreamble = 1UL << 10,
+    
+    /**
+     * Used to indicate that attributed types should be included in CXType.
+     */
+    PLClangTranslationUnitCreationIncludeAttributedTypes = 1UL << 11,
+    
+    /**
+     * Used to indicate that implicit attributes should be visited.
+     */
+    PLClangTranslationUnitCreationVisitImplicitAttributes = 1UL << 12,
 };
 
+
+typedef NS_OPTIONS(NSUInteger, PLClangTranslationUnitIndexOptions) {
+    /**
+     * Used to indicate that no special indexing options are needed.
+     */
+    PLClangTranslationUnitIndexOptionNone = 0x0,
+    
+    /**
+     * Used to indicate that IndexerCallbacks#indexEntityReference should
+     * be invoked for only one reference of an entity per source file that does
+     * not also include a declaration/definition of the entity.
+     */
+    PLClangTranslationUnitIndexOptionSuppressRedundantRefs = 0x1,
+    
+    /**
+     * Function-local symbols should be indexed. If this is not set
+     * function-local symbols will be ignored.
+     */
+    PLClangTranslationUnitIndexOptionIndexFunctionLocalSymbols = 0x2,
+    
+    /**
+     * Implicit function/class template instantiations should be indexed.
+     * If this is not set, implicit instantiations will be ignored.
+     */
+    PLClangTranslationUnitIndexOptionIndexImplicitTemplateInstantiations = 0x4,
+    
+    /**
+     * Suppress all compiler warnings when parsing for indexing.
+     */
+    PLClangTranslationUnitIndexOptionSuppressWarnings = 0x8,
+    
+    /**
+     * Skip a function/method body that was already parsed during an
+     * indexing session associated with a \c CXIndexAction object.
+     * Bodies in system headers are always skipped.
+     */
+    PLClangTranslationUnitIndexOptionSkipParsedBodiesInSession = 0x10
+    
+};
+
+@class PLClangSourceIndex;
+@protocol PLClangSourceIndexDelegate <NSObject>
+
+- (void)index:(PLClangSourceIndex *)index didIndexDeclaration:(PLClangIndexDeclaration *)declaration;
+- (void)index:(PLClangSourceIndex *)index didIndexEntityReference:(PLClangEntityReference *)entityReference;
+- (void)index:(PLClangSourceIndex *)index didIndexDiagnostics:(NSArray<PLClangDiagnostic *> *)diagnostics;
+- (void)index:(PLClangSourceIndex *)index didEnterMainFile:(PLClangFile *)mainFile;
+- (void)index:(PLClangSourceIndex *)index didIncludeFile:(PLClangIndexIncludedFile *)fileInfo;
+- (void)index:(PLClangSourceIndex *)index didImportASTFile:(PLClangIndexImportedASTFile *)fileInfo;
+- (void)indexDidStartTranslationUnit:(PLClangSourceIndex *)index;
+- (BOOL)indexShouldAbortQuery:(PLClangSourceIndex *)index;
+
+@end
+
 @interface PLClangSourceIndex : NSObject
+
+@property (nonatomic, weak) id<PLClangSourceIndexDelegate> delegate;
 
 + (instancetype) indexWithOptions: (PLClangIndexCreationOptions) options;
 
@@ -131,5 +233,12 @@ typedef NS_OPTIONS(NSUInteger, PLClangTranslationUnitCreationOptions) {
                                        compilerArguments: (NSArray *) arguments
                                                  options: (PLClangTranslationUnitCreationOptions) options
                                                    error: (NSError **) error;
+
+- (PLClangTranslationUnit *) indexSourcePath: (NSString *)path
+                                unsavedFiles: (NSArray *)files
+                           compilerArguments: (NSArray *)arguments
+                                indexOptions: (PLClangTranslationUnitIndexOptions)indexOptions
+                             creationOptions: (PLClangTranslationUnitCreationOptions)creationOptions
+                                       error: (NSError **)error;
 
 @end
